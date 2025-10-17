@@ -1,5 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { OrderType, OrderSide, OrderStatus } from '../../types/prisma.types';
+import { OrderType, OrderSide, OrderStatus, OrderTypeExplicit, OrderSideExplicit, OrderStatusExplicit } from '../../types/prisma.types';
+
+// Usar enums explícitos como respaldo para evitar problemas de runtime
+const OrderTypeEnum = OrderType || OrderTypeExplicit;
+const OrderSideEnum = OrderSide || OrderSideExplicit;
+const OrderStatusEnum = OrderStatus || OrderStatusExplicit;
 
 export class OrderResponseDto {
   @ApiProperty({ example: 1 })
@@ -8,10 +13,10 @@ export class OrderResponseDto {
   @ApiProperty({ example: 'BTCUSDT' })
   symbol: string;
 
-  @ApiProperty({ enum: OrderType, example: OrderType.MARKET })
+  @ApiProperty({ enum: OrderTypeEnum, example: OrderTypeEnum.MARKET })
   type: OrderType;
 
-  @ApiProperty({ enum: OrderSide, example: OrderSide.BUY })
+  @ApiProperty({ enum: OrderSideEnum, example: OrderSideEnum.BUY })
   side: OrderSide;
 
   @ApiProperty({ example: 0.001 })
@@ -20,7 +25,7 @@ export class OrderResponseDto {
   @ApiProperty({ example: 45000, nullable: true })
   price: number | null;
 
-  @ApiProperty({ enum: OrderStatus, example: OrderStatus.PENDING })
+  @ApiProperty({ enum: OrderStatusEnum, example: OrderStatusEnum.PENDING })
   status: OrderStatus;
 
   @ApiProperty({ example: '2024-01-15T10:30:00Z' })

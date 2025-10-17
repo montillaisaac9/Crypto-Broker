@@ -54,6 +54,10 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
 
+# Copiar cliente de Prisma generado
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
 # Cambiar ownership al usuario no-root
 RUN chown -R nestjs:nodejs /app
 USER nestjs

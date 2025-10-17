@@ -1,18 +1,22 @@
 import { IsString, IsNumber, Min, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { OrderType, OrderSide } from '../../types/prisma.types';
+import { OrderType, OrderSide, OrderTypeExplicit, OrderSideExplicit } from '../../types/prisma.types';
+
+// Usar enums explícitos como respaldo para evitar problemas de runtime
+const OrderTypeEnum = OrderType || OrderTypeExplicit;
+const OrderSideEnum = OrderSide || OrderSideExplicit;
 
 export class CreateOrderDto {
   @ApiProperty({ example: 'BTCUSDT' })
   @IsString()
   symbol: string;
 
-  @ApiProperty({ enum: OrderType, example: OrderType.MARKET })
-  @IsEnum(OrderType)
+  @ApiProperty({ enum: OrderTypeEnum, example: OrderTypeEnum.MARKET })
+  @IsEnum(OrderTypeEnum)
   type: OrderType;
 
-  @ApiProperty({ enum: OrderSide, example: OrderSide.BUY })
-  @IsEnum(OrderSide)
+  @ApiProperty({ enum: OrderSideEnum, example: OrderSideEnum.BUY })
+  @IsEnum(OrderSideEnum)
   side: OrderSide;
 
   @ApiProperty({ example: 0.001 })
