@@ -17,6 +17,17 @@ done
 
 echo "✅ Variables de entorno verificadas"
 
+# Generar cliente de Prisma
+echo "🔧 Generando cliente de Prisma..."
+npx prisma generate
+
+if [ $? -eq 0 ]; then
+    echo "✅ Cliente de Prisma generado exitosamente"
+else
+    echo "❌ Error: No se pudo generar el cliente de Prisma"
+    exit 1
+fi
+
 # Esperar a que la base de datos esté disponible
 echo "⏳ Esperando conexión a la base de datos..."
 echo "🔗 Conectando a: $DATABASE_HOST:$DATABASE_PORT"

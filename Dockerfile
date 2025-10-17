@@ -26,12 +26,16 @@ RUN npm ci --only=production && npm cache clean --force
 # ===========================================
 FROM base AS builder
 RUN npm ci
-# Copiar archivos de configuración necesarios para el build
-COPY tsconfig*.json ./
-COPY nest-cli.json ./
-# Copiar código fuente
-COPY src/ ./src/
-RUN npm run build
+    # Copiar archivos de configuración necesarios para el build
+    COPY tsconfig*.json ./
+    COPY nest-cli.json ./
+    # Copiar schema de Prisma
+    COPY prisma/ ./prisma/
+    # Copiar código fuente
+    COPY src/ ./src/
+    # Generar cliente de Prisma
+    RUN npx prisma generate
+    RUN npm run build
 
 # ===========================================
 # Imagen de producción
@@ -48,6 +52,7 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copiar aplicación compilada
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/prisma ./prisma
 
 # Cambiar ownership al usuario no-root
 RUN chown -R nestjs:nodejs /app
