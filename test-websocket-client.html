@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cliente de Prueba - WebSocket Velas Japonesas</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .candlestick {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            font-family: monospace;
+        }
+        .candlestick:last-child {
+            border-bottom: none;
+        }
+        .candlestick.new {
+            background-color: #fff3cd;
+            animation: highlight 2s ease-out;
+        }
+        @keyframes highlight {
+            0% { background-color: #fff3cd; }
+            100% { background-color: transparent; }
+        }
+        .price {
+            font-weight: bold;
+        }
+        .price.positive {
+            color: #28a745;
+        }
+        .price.negative {
+            color: #dc3545;
+        }
+        .subscriptions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .subscription-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .logs {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        .log-entry.info { color: #007bff; }
+        .log-entry.success { color: #28a745; }
+        .log-entry.error { color: #dc3545; }
+        .log-entry.warning { color: #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Cliente de Prueba - WebSocket Velas Japonesas</h1>
+    
+    <div class="container">
+        <h2>Estado de Conexión</h2>
+        <div id="status" class="status disconnected">
+            Desconectado
+        </div>
+        
+        <div class="controls">
+            <button id="connectBtn" onclick="connect()">Conectar</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Desconectar</button>
+            <button onclick="clearLogs()">Limpiar Logs</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Suscripciones</h2>
+        <div class="controls">
+            <select id="symbolSelect">
+                <option value="BTCUSDT">BTCUSDT</option>
+                <option value="ETHUSDT">ETHUSDT</option>
+                <option value="BNBUSDT">BNBUSDT</option>
+                <option value="SOLUSDT">SOLUSDT</option>
+                <option value="ADAUSDT">ADAUSDT</option>
+                <option value="XRPUSDT">XRPUSDT</option>
+                <option value="DOTUSDT">DOTUSDT</option>
+                <option value="MATICUSDT">MATICUSDT</option>
+                <option value="LINKUSDT">LINKUSDT</option>
+            </select>
+            <select id="intervalSelect">
+                <option value="1m">1 minuto</option>
+                <option value="3m">3 minutos</option>
+                <option value="5m">5 minutos</option>
+                <option value="15m">15 minutos</option>
+                <option value="30m">30 minutos</option>
+                <option value="1h">1 hora</option>
+                <option value="2h">2 horas</option>
+                <option value="4h">4 horas</option>
+                <option value="6h">6 horas</option>
+                <option value="8h">8 horas</option>
+                <option value="12h">12 horas</option>
+                <option value="1d">1 día</option>
+                <option value="3d">3 días</option>
+                <option value="1w">1 semana</option>
+                <option value="1M">1 mes</option>
+            </select>
+            <button onclick="subscribe()">Suscribirse</button>
+            <button onclick="unsubscribe()">Desuscribirse</button>
+            <button onclick="getSubscriptions()">Ver Suscripciones</button>
+            <button onclick="getActiveStreams()">Ver Streams Activos</button>
+        </div>
+        
+        <div id="subscriptions" class="subscriptions">
+            <!-- Las suscripciones se mostrarán aquí -->
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Últimas Velas</h2>
+        <div id="candlesticks">
+            <!-- Las velas se mostrarán aquí -->
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Logs</h2>
+        <div id="logs" class="logs">
+            <!-- Los logs se mostrarán aquí -->
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let subscriptions = new Set();
+        let candlesticks = new Map(); // symbol+interval -> array of candlesticks
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function updateStatus(connected) {
+            const status = document.getElementById('status');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            
+            if (connected) {
+                status.className = 'status connected';
+                status.textContent = 'Conectado';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+            } else {
+                status.className = 'status disconnected';
+                status.textContent = 'Desconectado';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            }
+        }
+
+        function connect() {
+            if (socket) {
+                socket.disconnect();
+            }
+
+            socket = io('http://localhost:3000/chart');
+            
+            socket.on('connect', () => {
+                log('Conectado al servidor WebSocket', 'success');
+                updateStatus(true);
+            });
+
+            socket.on('disconnect', () => {
+                log('Desconectado del servidor', 'warning');
+                updateStatus(false);
+                subscriptions.clear();
+                updateSubscriptionsDisplay();
+            });
+
+            socket.on('connected', (data) => {
+                log(`Conectado: ${data.message}`, 'success');
+            });
+
+            socket.on('historical_data', (data) => {
+                log(`Datos históricos recibidos para ${data.symbol} ${data.interval}: ${data.data.length} velas`, 'info');
+                const key = `${data.symbol}_${data.interval}`;
+                candlesticks.set(key, data.data);
+                updateCandlesticksDisplay();
+            });
+
+            socket.on('candlestick_update', (candlestick) => {
+                log(`Nueva vela: ${candlestick.symbol} ${candlestick.interval} - Close: ${candlestick.close}`, 'info');
+                const key = `${candlestick.symbol}_${candlestick.interval}`;
+                let candles = candlesticks.get(key) || [];
+                
+                // Actualizar o agregar vela
+                const existingIndex = candles.findIndex(c => c.openTime === candlestick.openTime);
+                if (existingIndex >= 0) {
+                    candles[existingIndex] = candlestick;
+                } else {
+                    candles.push(candlestick);
+                }
+                
+                // Mantener solo las últimas 50 velas
+                if (candles.length > 50) {
+                    candles = candles.slice(-50);
+                }
+                
+                candlesticks.set(key, candles);
+                updateCandlesticksDisplay();
+            });
+
+            socket.on('subscription_confirmed', (data) => {
+                log(`Suscrito exitosamente a ${data.symbol} ${data.interval}`, 'success');
+                const key = `${data.symbol}_${data.interval}`;
+                subscriptions.add(key);
+                updateSubscriptionsDisplay();
+            });
+
+            socket.on('subscription_error', (error) => {
+                log(`Error en suscripción: ${error.message}`, 'error');
+            });
+
+            socket.on('unsubscription_confirmed', (data) => {
+                log(`Desuscrito exitosamente de ${data.symbol} ${data.interval}`, 'success');
+                const key = `${data.symbol}_${data.interval}`;
+                subscriptions.delete(key);
+                updateSubscriptionsDisplay();
+            });
+
+            socket.on('unsubscription_error', (error) => {
+                log(`Error en desuscripción: ${error.message}`, 'error');
+            });
+
+            socket.on('subscriptions_list', (data) => {
+                log(`Suscripciones actuales: ${data.count}`, 'info');
+                subscriptions.clear();
+                data.subscriptions.forEach(sub => {
+                    subscriptions.add(`${sub.symbol}_${sub.interval}`);
+                });
+                updateSubscriptionsDisplay();
+            });
+
+            socket.on('active_streams', (data) => {
+                log(`Streams activos: ${data.totalStreams}, Total suscriptores: ${data.totalSubscribers}`, 'info');
+                data.streams.forEach(stream => {
+                    log(`  - ${stream.symbol} ${stream.interval}: ${stream.subscriberCount} suscriptores`, 'info');
+                });
+            });
+
+            socket.on('pong', (data) => {
+                log(`Pong recibido: ${data.timestamp}`, 'info');
+            });
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+
+        function subscribe() {
+            if (!socket) {
+                log('No hay conexión activa', 'error');
+                return;
+            }
+
+            const symbol = document.getElementById('symbolSelect').value;
+            const interval = document.getElementById('intervalSelect').value;
+            
+            socket.emit('subscribe_chart', { symbol, interval });
+            log(`Solicitando suscripción a ${symbol} ${interval}`, 'info');
+        }
+
+        function unsubscribe() {
+            if (!socket) {
+                log('No hay conexión activa', 'error');
+                return;
+            }
+
+            const symbol = document.getElementById('symbolSelect').value;
+            const interval = document.getElementById('intervalSelect').value;
+            
+            socket.emit('unsubscribe_chart', { symbol, interval });
+            log(`Solicitando desuscripción de ${symbol} ${interval}`, 'info');
+        }
+
+        function getSubscriptions() {
+            if (!socket) {
+                log('No hay conexión activa', 'error');
+                return;
+            }
+            
+            socket.emit('get_subscriptions');
+        }
+
+        function getActiveStreams() {
+            if (!socket) {
+                log('No hay conexión activa', 'error');
+                return;
+            }
+            
+            socket.emit('get_active_streams');
+        }
+
+        function updateSubscriptionsDisplay() {
+            const container = document.getElementById('subscriptions');
+            container.innerHTML = '';
+            
+            subscriptions.forEach(key => {
+                const [symbol, interval] = key.split('_');
+                const item = document.createElement('div');
+                item.className = 'subscription-item';
+                item.innerHTML = `
+                    <strong>${symbol}</strong><br>
+                    <small>${interval}</small>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function updateCandlesticksDisplay() {
+            const container = document.getElementById('candlesticks');
+            container.innerHTML = '';
+            
+            candlesticks.forEach((candles, key) => {
+                if (candles.length === 0) return;
+                
+                const [symbol, interval] = key.split('_');
+                const section = document.createElement('div');
+                section.innerHTML = `<h3>${symbol} - ${interval}</h3>`;
+                
+                // Mostrar las últimas 10 velas
+                const recentCandles = candles.slice(-10).reverse();
+                
+                recentCandles.forEach(candle => {
+                    const div = document.createElement('div');
+                    div.className = 'candlestick';
+                    
+                    const isPositive = candle.close >= candle.open;
+                    const priceClass = isPositive ? 'positive' : 'negative';
+                    
+                    div.innerHTML = `
+                        <span>${new Date(candle.openTime).toLocaleTimeString()}</span>
+                        <span>O: <span class="price">${candle.open}</span></span>
+                        <span>H: <span class="price">${candle.high}</span></span>
+                        <span>L: <span class="price">${candle.low}</span></span>
+                        <span>C: <span class="price ${priceClass}">${candle.close}</span></span>
+                        <span>V: ${candle.volume}</span>
+                        <span>${candle.isClosed ? '✅' : '⏳'}</span>
+                    `;
+                    
+                    section.appendChild(div);
+                });
+                
+                container.appendChild(section);
+            });
+        }
+
+        // Auto-conectar al cargar la página
+        window.onload = () => {
+            log('Página cargada. Haz clic en "Conectar" para comenzar.', 'info');
+        };
+    </script>
+</body>
+</html>
