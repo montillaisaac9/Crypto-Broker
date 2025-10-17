@@ -1,11 +1,9 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { PrismaService } from '../common/services/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { MarketService } from '../market/market.service';
 import { TradingService } from '../trading/trading.service';
-import { User } from '../entities/user.entity';
-import { Order, OrderType, OrderStatus } from '../entities/order.entity';
+import { User, Order, OrderType, OrderStatus, OrderSide } from '../types/prisma.types';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
 
@@ -14,8 +12,7 @@ export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
   constructor(
-    @InjectRepository(Order)
-    private ordersRepository: Repository<Order>,
+    private prisma: PrismaService,
     private marketService: MarketService,
     private tradingService: TradingService,
   ) {}
@@ -29,17 +26,17 @@ export class OrdersService {
     }
 
     // Crear la orden
-    const order = this.ordersRepository.create({
-      user_id: user.id,
-      symbol,
-      type,
-      side,
-      quantity,
-      price,
-      status: OrderStatus.PENDING,
+    const savedOrder = await this.prisma.order.create({
+      data: {
+        userId: user.id,
+        symbol,
+        type,
+        side,
+        quantity,
+        price,
+        status: OrderStatus.PENDING,
+      },
     });
-
-    const savedOrder = await this.ordersRepository.save(order);
 
     // Si es una orden market, ejecutarla inmediatamente
     if (type === OrderType.MARKET) {
@@ -50,17 +47,17 @@ export class OrdersService {
   }
 
   async getUserOrders(userId: number): Promise<OrderResponseDto[]> {
-    const orders = await this.ordersRepository.find({
-      where: { user_id: userId },
-      order: { created_at: 'DESC' },
+    const orders = await this.prisma.order.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
     });
 
     return orders.map(order => this.mapOrderToResponse(order));
   }
 
   async getOrderById(orderId: number, userId: number): Promise<OrderResponseDto> {
-    const order = await this.ordersRepository.findOne({
-      where: { id: orderId, user_id: userId },
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
     });
 
     if (!order) {
@@ -71,8 +68,8 @@ export class OrdersService {
   }
 
   async cancelOrder(orderId: number, userId: number): Promise<OrderResponseDto> {
-    const order = await this.ordersRepository.findOne({
-      where: { id: orderId, user_id: userId },
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
     });
 
     if (!order) {
@@ -83,8 +80,10 @@ export class OrdersService {
       throw new BadRequestException('Solo se pueden cancelar órdenes pendientes');
     }
 
-    order.status = OrderStatus.CANCELLED;
-    const updatedOrder = await this.ordersRepository.save(order);
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: OrderStatus.CANCELLED },
+    });
 
     return this.mapOrderToResponse(updatedOrder);
   }
@@ -92,9 +91,9 @@ export class OrdersService {
   // Ejecutar cada 10 segundos para monitorear órdenes pendientes
   @Cron(CronExpression.EVERY_10_SECONDS)
   async processPendingOrders(): Promise<void> {
-    const pendingOrders = await this.ordersRepository.find({
+    const pendingOrders = await this.prisma.order.findMany({
       where: { status: OrderStatus.PENDING },
-      relations: ['user'],
+      include: { user: true },
     });
 
     for (const order of pendingOrders) {
@@ -112,26 +111,32 @@ export class OrdersService {
 
   private async executeMarketOrder(order: Order, user: User): Promise<void> {
     try {
-      if (order.side === 'buy') {
+      if (order.side === OrderSide.BUY) {
         await this.tradingService.buy(user, {
           symbol: order.symbol,
-          quantity: order.quantity,
+          quantity: parseFloat(order.quantity.toString()),
         });
       } else {
         await this.tradingService.sell(user, {
           symbol: order.symbol,
-          quantity: order.quantity,
+          quantity: parseFloat(order.quantity.toString()),
         });
       }
 
-      order.status = OrderStatus.FILLED;
-      order.filled_at = new Date();
-      await this.ordersRepository.save(order);
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.FILLED,
+          filledAt: new Date(),
+        },
+      });
 
       this.logger.log(`Market order ${order.id} executed successfully`);
     } catch (error) {
-      order.status = OrderStatus.CANCELLED;
-      await this.ordersRepository.save(order);
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: { status: OrderStatus.CANCELLED },
+      });
       this.logger.error(`Market order ${order.id} failed:`, error.message);
     }
   }
@@ -141,14 +146,18 @@ export class OrdersService {
     
     let shouldExecute = false;
     
-    if (order.side === 'buy' && currentPrice <= order.price) {
+    if (order.side === OrderSide.BUY && order.price && currentPrice <= parseFloat(order.price.toString())) {
       shouldExecute = true;
-    } else if (order.side === 'sell' && currentPrice >= order.price) {
+    } else if (order.side === OrderSide.SELL && order.price && currentPrice >= parseFloat(order.price.toString())) {
       shouldExecute = true;
     }
 
     if (shouldExecute) {
-      await this.executeMarketOrder(order, order.user);
+      // Obtener el usuario para ejecutar la orden
+      const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
+      if (user) {
+        await this.executeMarketOrder(order, user);
+      }
     }
   }
 
@@ -156,8 +165,12 @@ export class OrdersService {
     const currentPrice = await this.marketService.getCurrentPrice(order.symbol);
     
     // Para stop-loss, solo se ejecuta si el precio baja del nivel especificado
-    if (order.side === 'sell' && currentPrice <= order.price) {
-      await this.executeMarketOrder(order, order.user);
+    if (order.side === OrderSide.SELL && order.price && currentPrice <= parseFloat(order.price.toString())) {
+      // Obtener el usuario para ejecutar la orden
+      const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
+      if (user) {
+        await this.executeMarketOrder(order, user);
+      }
     }
   }
 
@@ -167,11 +180,11 @@ export class OrdersService {
       symbol: order.symbol,
       type: order.type,
       side: order.side,
-      quantity: order.quantity,
-      price: order.price,
+      quantity: parseFloat(order.quantity.toString()),
+      price: order.price ? parseFloat(order.price.toString()) : null,
       status: order.status,
-      created_at: order.created_at,
-      filled_at: order.filled_at,
+      created_at: order.createdAt,
+      filled_at: order.filledAt,
     };
   }
 }

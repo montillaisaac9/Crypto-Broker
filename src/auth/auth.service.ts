@@ -34,7 +34,7 @@ export class AuthService {
 
     const isPasswordValid = await this.usersService.validatePassword(
       loginDto.password,
-      user.password_hash,
+      user.passwordHash,
     );
 
     if (!isPasswordValid) {
@@ -54,7 +54,7 @@ export class AuthService {
   async validateUser(userId: number): Promise<any> {
     const user = await this.usersService.findById(userId);
     if (user) {
-      const { password_hash, ...result } = user;
+      const { passwordHash, ...result } = user;
       return result;
     }
     return null;

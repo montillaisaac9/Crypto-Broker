@@ -1,19 +1,13 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { TradingController } from './trading.controller';
 import { TradingService } from './trading.service';
 import { MarketModule } from '../market/market.module';
-import { Balance } from '../entities/balance.entity';
-import { Holding } from '../entities/holding.entity';
-import { Trade } from '../entities/trade.entity';
+import { PrismaService } from '../common/services/prisma.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Balance, Holding, Trade]),
-    MarketModule,
-  ],
+  imports: [MarketModule],
   controllers: [TradingController],
-  providers: [TradingService],
+  providers: [TradingService, PrismaService],
   exports: [TradingService],
 })
 export class TradingModule {}

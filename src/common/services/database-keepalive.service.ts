@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { PrismaService } from './prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -8,8 +7,7 @@ export class DatabaseKeepAliveService {
   private readonly logger = new Logger(DatabaseKeepAliveService.name);
 
   constructor(
-    @InjectDataSource()
-    private dataSource: DataSource,
+    private prisma: PrismaService,
   ) {}
 
   /**
@@ -20,7 +18,7 @@ export class DatabaseKeepAliveService {
   async keepAlive() {
     try {
       // Ejecutar una consulta simple para mantener la conexión activa
-      await this.dataSource.query('SELECT 1');
+      await this.prisma.$queryRaw`SELECT 1`;
       this.logger.log('✅ Keep-alive ejecutado exitosamente');
     } catch (error) {
       this.logger.error('❌ Error en keep-alive:', error.message);
@@ -37,13 +35,13 @@ export class DatabaseKeepAliveService {
       this.logger.log('🔄 Iniciando keep-alive diario...');
       
       // Ejecutar múltiples consultas para asegurar la conexión
-      await this.dataSource.query('SELECT NOW()');
-      await this.dataSource.query('SELECT version()');
+      await this.prisma.$queryRaw`SELECT NOW()`;
+      await this.prisma.$queryRaw`SELECT version()`;
       
       // Verificar el estado de la conexión
-      const result = await this.dataSource.query('SELECT 1 as status');
+      const result = await this.prisma.$queryRaw`SELECT 1 as status`;
       
-      if (result && result[0]?.status === 1) {
+      if (result && (result as any)[0]?.status === 1) {
         this.logger.log('✅ Keep-alive diario completado exitosamente');
       } else {
         this.logger.warn('⚠️ Keep-alive diario completado con advertencias');
@@ -53,8 +51,8 @@ export class DatabaseKeepAliveService {
       
       // Intentar reconectar si hay error
       try {
-        await this.dataSource.destroy();
-        await this.dataSource.initialize();
+        await this.prisma.$disconnect();
+        await this.prisma.$connect();
         this.logger.log('🔄 Reconexión a la base de datos exitosa');
       } catch (reconnectError) {
         this.logger.error('❌ Error al reconectar:', reconnectError.message);
@@ -69,7 +67,7 @@ export class DatabaseKeepAliveService {
   @Cron('*/5 8-18 * * 1-5')
   async businessHoursKeepAlive() {
     try {
-      await this.dataSource.query('SELECT 1');
+      await this.prisma.$queryRaw`SELECT 1`;
       this.logger.debug('💼 Keep-alive horario laboral ejecutado');
     } catch (error) {
       this.logger.error('❌ Error en keep-alive horario laboral:', error.message);
@@ -81,7 +79,7 @@ export class DatabaseKeepAliveService {
    */
   async manualKeepAlive(): Promise<boolean> {
     try {
-      await this.dataSource.query('SELECT 1');
+      await this.prisma.$queryRaw`SELECT 1`;
       this.logger.log('✅ Keep-alive manual ejecutado exitosamente');
       return true;
     } catch (error) {
@@ -99,10 +97,10 @@ export class DatabaseKeepAliveService {
     error?: string;
   }> {
     try {
-      const result = await this.dataSource.query('SELECT NOW() as current_time');
+      const result = await this.prisma.$queryRaw`SELECT NOW() as current_time`;
       return {
         isConnected: true,
-        timestamp: result[0]?.current_time || new Date().toISOString(),
+        timestamp: (result as any)[0]?.current_time || new Date().toISOString(),
       };
     } catch (error) {
       return {

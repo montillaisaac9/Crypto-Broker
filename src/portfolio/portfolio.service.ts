@@ -1,10 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { PrismaService } from '../common/services/prisma.service';
 import { MarketService } from '../market/market.service';
-import { Balance } from '../entities/balance.entity';
-import { Holding } from '../entities/holding.entity';
-import { Trade } from '../entities/trade.entity';
+import { Balance, Holding, Trade } from '../types/prisma.types';
 import { BalanceDto } from './dto/balance.dto';
 import { HoldingDto } from './dto/holding.dto';
 import { PortfolioSummaryDto } from './dto/portfolio-summary.dto';
@@ -16,12 +13,7 @@ export class PortfolioService {
   private readonly logger = new Logger(PortfolioService.name);
 
   constructor(
-    @InjectRepository(Balance)
-    private balancesRepository: Repository<Balance>,
-    @InjectRepository(Holding)
-    private holdingsRepository: Repository<Holding>,
-    @InjectRepository(Trade)
-    private tradesRepository: Repository<Trade>,
+    private prisma: PrismaService,
     private marketService: MarketService,
   ) {}
 
@@ -45,8 +37,8 @@ export class PortfolioService {
   }
 
   async getUserBalances(userId: number): Promise<BalanceDto[]> {
-    const balances = await this.balancesRepository.find({
-      where: { user_id: userId },
+    const balances = await this.prisma.balance.findMany({
+      where: { userId },
     });
 
     const balanceDtos: BalanceDto[] = [];
@@ -76,8 +68,8 @@ export class PortfolioService {
   }
 
   async getUserHoldings(userId: number): Promise<HoldingDto[]> {
-    const holdings = await this.holdingsRepository.find({
-      where: { user_id: userId },
+    const holdings = await this.prisma.holding.findMany({
+      where: { userId },
     });
 
     const holdingDtos: HoldingDto[] = [];
@@ -86,14 +78,14 @@ export class PortfolioService {
       try {
         const currentPrice = await this.marketService.getCurrentPrice(`${holding.symbol}USDT`);
         const currentValue = parseFloat(holding.quantity.toString()) * currentPrice;
-        const totalCost = parseFloat(holding.quantity.toString()) * parseFloat(holding.avg_purchase_price.toString());
+        const totalCost = parseFloat(holding.quantity.toString()) * parseFloat(holding.avgPurchasePrice.toString());
         const unrealizedPnl = currentValue - totalCost;
         const unrealizedPnlPercent = totalCost > 0 ? (unrealizedPnl / totalCost) * 100 : 0;
 
         holdingDtos.push({
           symbol: holding.symbol,
           quantity: parseFloat(holding.quantity.toString()),
-          avg_purchase_price: parseFloat(holding.avg_purchase_price.toString()),
+          avg_purchase_price: parseFloat(holding.avgPurchasePrice.toString()),
           current_price: currentPrice,
           current_value: currentValue,
           total_cost: totalCost,
@@ -109,9 +101,9 @@ export class PortfolioService {
   }
 
   async getTradeHistory(userId: number, limit: number = 50): Promise<TradeHistoryDto[]> {
-    const trades = await this.tradesRepository.find({
-      where: { user_id: userId },
-      order: { executed_at: 'DESC' },
+    const trades = await this.prisma.trade.findMany({
+      where: { userId },
+      orderBy: { executedAt: 'desc' },
       take: limit,
     });
 
@@ -123,14 +115,14 @@ export class PortfolioService {
       price: parseFloat(trade.price.toString()),
       total: parseFloat(trade.total.toString()),
       fee: parseFloat(trade.fee.toString()),
-      executed_at: trade.executed_at,
+      executed_at: trade.executedAt,
     }));
   }
 
   async getPerformance(userId: number): Promise<PerformanceDto> {
-    const trades = await this.tradesRepository.find({
-      where: { user_id: userId },
-      order: { executed_at: 'ASC' },
+    const trades = await this.prisma.trade.findMany({
+      where: { userId },
+      orderBy: { executedAt: 'asc' },
     });
 
     const holdings = await this.getUserHoldings(userId);
@@ -146,7 +138,7 @@ export class PortfolioService {
       const buyTrades = trades.filter(trade => 
         trade.symbol === sellTrade.symbol && 
         trade.side === 'buy' && 
-        trade.executed_at < sellTrade.executed_at
+        trade.executedAt < sellTrade.executedAt
       );
 
       if (buyTrades.length > 0) {
@@ -172,7 +164,7 @@ export class PortfolioService {
       const buyTrades = trades.filter(bt => 
         bt.symbol === trade.symbol && 
         bt.side === 'buy' && 
-        bt.executed_at < trade.executed_at
+        bt.executedAt < trade.executedAt
       );
       if (buyTrades.length > 0) {
         const avgBuyPrice = buyTrades.reduce((sum, bt) => 

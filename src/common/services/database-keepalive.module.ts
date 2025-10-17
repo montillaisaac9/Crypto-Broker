@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { PrismaService } from './prisma.service';
 import { DatabaseKeepAliveService } from './database-keepalive.service';
 
 @Module({
-  imports: [TypeOrmModule],
-  providers: [DatabaseKeepAliveService],
-  exports: [DatabaseKeepAliveService],
+  providers: [PrismaService, DatabaseKeepAliveService],
+  exports: [PrismaService, DatabaseKeepAliveService],
 })
 export class DatabaseKeepAliveModule {}

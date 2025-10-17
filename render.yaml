@@ -27,6 +27,8 @@ services:
         sync: false
       - key: DATABASE_POOL_MODE
         value: session
+      - key: DATABASE_URL
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN

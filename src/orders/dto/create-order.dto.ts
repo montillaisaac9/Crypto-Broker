@@ -1,6 +1,6 @@
 import { IsString, IsNumber, Min, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { OrderType, OrderSide } from '../../entities/order.entity';
+import { OrderType, OrderSide } from '../../types/prisma.types';
 
 export class CreateOrderDto {
   @ApiProperty({ example: 'BTCUSDT' })

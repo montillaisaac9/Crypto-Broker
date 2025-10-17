@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { databaseConfig } from './config/database.config';
+import { PrismaService } from './common/services/prisma.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { MarketModule } from './market/market.module';
@@ -20,7 +19,6 @@ import { DatabaseKeepAliveModule } from './common/services/database-keepalive.mo
       isGlobal: true,
     }),
     ScheduleModule.forRoot(),
-    TypeOrmModule.forRoot(databaseConfig),
     DatabaseKeepAliveModule,
     AuthModule,
     UsersModule,
@@ -31,6 +29,7 @@ import { DatabaseKeepAliveModule } from './common/services/database-keepalive.mo
     WebsocketModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, PrismaService],
+  exports: [PrismaService],
 })
 export class AppModule {}

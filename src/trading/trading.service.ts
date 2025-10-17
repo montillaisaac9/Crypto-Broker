@@ -1,11 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { PrismaService } from '../common/services/prisma.service';
 import { MarketService } from '../market/market.service';
-import { User } from '../entities/user.entity';
-import { Balance } from '../entities/balance.entity';
-import { Holding } from '../entities/holding.entity';
-import { Trade } from '../entities/trade.entity';
+import { User, Balance, Holding, Trade } from '../types/prisma.types';
 import { BuyDto } from './dto/buy.dto';
 import { SellDto } from './dto/sell.dto';
 import { TradeResponseDto } from './dto/trade-response.dto';
@@ -16,12 +12,7 @@ export class TradingService {
   private readonly tradingFee = 0.001; // 0.1% fee
 
   constructor(
-    @InjectRepository(Balance)
-    private balancesRepository: Repository<Balance>,
-    @InjectRepository(Holding)
-    private holdingsRepository: Repository<Holding>,
-    @InjectRepository(Trade)
-    private tradesRepository: Repository<Trade>,
+    private prisma: PrismaService,
     private marketService: MarketService,
   ) {}
 
@@ -48,18 +39,19 @@ export class TradingService {
     await this.updateHolding(user.id, baseAsset, quantity, currentPrice);
 
     // Crear registro de trade
-    const trade = this.tradesRepository.create({
-      user_id: user.id,
-      symbol,
-      side: 'buy',
-      quantity,
-      price: currentPrice,
-      total: totalCost,
-      fee,
-      executed_at: new Date(),
+    const savedTrade = await this.prisma.trade.create({
+      data: {
+        userId: user.id,
+        symbol,
+        side: 'buy',
+        quantity,
+        price: currentPrice,
+        total: totalCost,
+        fee,
+        executedAt: new Date(),
+        orderId: null, // No hay orden asociada para trades directos
+      },
     });
-
-    const savedTrade = await this.tradesRepository.save(trade);
 
     // Obtener balance actualizado
     const updatedBalance = await this.getUserBalance(user.id, 'USDT');
@@ -74,7 +66,7 @@ export class TradingService {
       price: currentPrice,
       total: totalCost,
       fee,
-      executed_at: savedTrade.executed_at,
+      executed_at: savedTrade.executedAt,
       remaining_balance: updatedBalance,
     };
   }
@@ -91,7 +83,7 @@ export class TradingService {
 
     // Verificar que el usuario tenga suficientes holdings
     const holding = await this.getUserHolding(user.id, baseAsset);
-    if (!holding || holding.quantity < quantity) {
+    if (!holding || parseFloat(holding.quantity.toString()) < quantity) {
       throw new BadRequestException('No tienes suficientes holdings para realizar la venta');
     }
 
@@ -100,27 +92,32 @@ export class TradingService {
     await this.updateBalance(user.id, 'USDT', usdtBalance + totalAfterFee);
 
     // Actualizar holding
-    const newQuantity = holding.quantity - quantity;
+    const newQuantity = parseFloat(holding.quantity.toString()) - quantity;
     if (newQuantity <= 0) {
-      await this.holdingsRepository.remove(holding);
+      await this.prisma.holding.delete({
+        where: { id: holding.id }
+      });
     } else {
-      holding.quantity = newQuantity;
-      await this.holdingsRepository.save(holding);
+      await this.prisma.holding.update({
+        where: { id: holding.id },
+        data: { quantity: newQuantity }
+      });
     }
 
     // Crear registro de trade
-    const trade = this.tradesRepository.create({
-      user_id: user.id,
-      symbol,
-      side: 'sell',
-      quantity,
-      price: currentPrice,
-      total: totalValue,
-      fee,
-      executed_at: new Date(),
+    const savedTrade = await this.prisma.trade.create({
+      data: {
+        userId: user.id,
+        symbol,
+        side: 'sell',
+        quantity,
+        price: currentPrice,
+        total: totalValue,
+        fee,
+        executedAt: new Date(),
+        orderId: null, // No hay orden asociada para trades directos
+      },
     });
-
-    const savedTrade = await this.tradesRepository.save(trade);
 
     // Obtener balance actualizado
     const updatedBalance = await this.getUserBalance(user.id, 'USDT');
@@ -135,39 +132,40 @@ export class TradingService {
       price: currentPrice,
       total: totalValue,
       fee,
-      executed_at: savedTrade.executed_at,
+      executed_at: savedTrade.executedAt,
       remaining_balance: updatedBalance,
     };
   }
 
   private async getUserBalance(userId: number, currency: string): Promise<number> {
-    const balance = await this.balancesRepository.findOne({
-      where: { user_id: userId, currency },
+    const balance = await this.prisma.balance.findFirst({
+      where: { userId, currency },
     });
     return balance ? parseFloat(balance.amount.toString()) : 0;
   }
 
   private async updateBalance(userId: number, currency: string, amount: number): Promise<void> {
-    const balance = await this.balancesRepository.findOne({
-      where: { user_id: userId, currency },
-    });
-
-    if (balance) {
-      balance.amount = amount;
-      await this.balancesRepository.save(balance);
-    } else {
-      const newBalance = this.balancesRepository.create({
-        user_id: userId,
+    await this.prisma.balance.upsert({
+      where: {
+        userId_currency: {
+          userId,
+          currency,
+        },
+      },
+      update: {
+        amount,
+      },
+      create: {
+        userId,
         currency,
         amount,
-      });
-      await this.balancesRepository.save(newBalance);
-    }
+      },
+    });
   }
 
   private async getUserHolding(userId: number, symbol: string): Promise<Holding | null> {
-    return this.holdingsRepository.findOne({
-      where: { user_id: userId, symbol },
+    return this.prisma.holding.findFirst({
+      where: { userId, symbol },
     });
   }
 
@@ -176,21 +174,26 @@ export class TradingService {
 
     if (existingHolding) {
       // Calcular precio promedio ponderado
-      const totalValue = (existingHolding.quantity * existingHolding.avg_purchase_price) + (quantity * price);
-      const totalQuantity = existingHolding.quantity + quantity;
+      const totalValue = (parseFloat(existingHolding.quantity.toString()) * parseFloat(existingHolding.avgPurchasePrice.toString())) + (quantity * price);
+      const totalQuantity = parseFloat(existingHolding.quantity.toString()) + quantity;
       const avgPrice = totalValue / totalQuantity;
 
-      existingHolding.quantity = totalQuantity;
-      existingHolding.avg_purchase_price = avgPrice;
-      await this.holdingsRepository.save(existingHolding);
-    } else {
-      const newHolding = this.holdingsRepository.create({
-        user_id: userId,
-        symbol,
-        quantity,
-        avg_purchase_price: price,
+      await this.prisma.holding.update({
+        where: { id: existingHolding.id },
+        data: {
+          quantity: totalQuantity,
+          avgPurchasePrice: avgPrice,
+        },
       });
-      await this.holdingsRepository.save(newHolding);
+    } else {
+      await this.prisma.holding.create({
+        data: {
+          userId,
+          symbol,
+          quantity,
+          avgPurchasePrice: price,
+        },
+      });
     }
   }
 }

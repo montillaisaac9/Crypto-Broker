@@ -210,3 +210,5 @@ test-results.xml
 
 # WebSocket test client (opcional - descomenta si no quieres incluir el archivo de prueba)
 # test-websocket-client.html
+
+/generated/prisma

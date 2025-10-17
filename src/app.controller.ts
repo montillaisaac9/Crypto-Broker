@@ -80,4 +80,52 @@ export class AppController {
       timestamp: new Date().toISOString(),
     };
   }
+
+  @Get('debug/database')
+  @ApiOperation({ summary: 'Información de diagnóstico de la base de datos' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Información de diagnóstico de la base de datos',
+    schema: {
+      type: 'object',
+      properties: {
+        config: {
+          type: 'object',
+          properties: {
+            host: { type: 'string' },
+            port: { type: 'number' },
+            user: { type: 'string' },
+            database: { type: 'string' },
+            passwordConfigured: { type: 'boolean' },
+            ssl: { type: 'boolean' },
+            nodeEnv: { type: 'string' }
+          }
+        },
+        connection: {
+          type: 'object',
+          properties: {
+            isConnected: { type: 'boolean' },
+            timestamp: { type: 'string' },
+            error: { type: 'string' }
+          }
+        }
+      }
+    }
+  })
+  async getDatabaseDebugInfo() {
+    const connectionStatus = await this.databaseKeepAliveService.checkConnection();
+    
+    return {
+      config: {
+        host: process.env.DATABASE_HOST || 'localhost',
+        port: parseInt(process.env.DATABASE_PORT || '5432'),
+        user: process.env.DATABASE_USER || 'postgres',
+        database: process.env.DATABASE_NAME || 'crypto_broker',
+        passwordConfigured: !!process.env.DATABASE_PASSWORD,
+        ssl: process.env.NODE_ENV === 'production',
+        nodeEnv: process.env.NODE_ENV || 'development'
+      },
+      connection: connectionStatus
+    };
+  }
 }
