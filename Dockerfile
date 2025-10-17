@@ -26,7 +26,11 @@ RUN npm ci --only=production && npm cache clean --force
 # ===========================================
 FROM base AS builder
 RUN npm ci
-COPY . .
+# Copiar archivos de configuración necesarios para el build
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
+# Copiar código fuente
+COPY src/ ./src/
 RUN npm run build
 
 # ===========================================

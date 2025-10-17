@@ -60,8 +60,7 @@ temp
 # Archivos de configuración de desarrollo
 .eslintrc*
 .prettierrc*
-tsconfig.json
-tsconfig.build.json
+# tsconfig.json, tsconfig.build.json y nest-cli.json son necesarios para el build
 
 # Archivos de CI/CD
 .github
