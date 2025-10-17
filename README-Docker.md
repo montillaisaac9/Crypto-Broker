@@ -119,7 +119,18 @@ El proyecto está configurado para usar Supabase como base de datos. Asegúrate 
 3. **Configurar la variable `DATABASE_PASSWORD`** en Render con la contraseña real
 4. **Verificar que el pooler esté habilitado** en la configuración de Supabase
 
+**⚠️ IMPORTANTE**: La variable `DATABASE_PASSWORD` debe configurarse manualmente en el dashboard de Render.
+
 **Nota**: No necesitas crear una base de datos en Render, ya que estás usando Supabase.
+
+### 4. Verificar Conexión a Base de Datos
+```bash
+# Probar conexión localmente
+npm run test:db
+
+# Verificar estado en producción
+curl https://your-app.onrender.com/health/database
+```
 
 ## 🏗️ Características del Dockerfile
 
