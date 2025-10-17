@@ -11,7 +11,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @ApiTags('portfolio')
 @Controller('portfolio')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 export class PortfolioController {
   constructor(private portfolioService: PortfolioService) {}
 

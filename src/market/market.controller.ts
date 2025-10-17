@@ -12,7 +12,7 @@ export class MarketController {
 
   @Get('prices')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Obtener precios actuales de todas las criptomonedas soportadas' })
   @ApiResponse({ status: 200, description: 'Precios obtenidos exitosamente', type: [PriceDto] })
   async getCurrentPrices(): Promise<PriceDto[]> {
@@ -21,7 +21,7 @@ export class MarketController {
 
   @Get('ticker/:symbol')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Obtener datos detallados de un símbolo específico' })
   @ApiResponse({ status: 200, description: 'Datos del ticker obtenidos exitosamente', type: PriceDto })
   @ApiResponse({ status: 404, description: 'Símbolo no encontrado' })
@@ -31,7 +31,7 @@ export class MarketController {
 
   @Get('symbols')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Obtener lista de símbolos disponibles para trading' })
   @ApiResponse({ status: 200, description: 'Símbolos obtenidos exitosamente', type: [SymbolDto] })
   async getSymbols(): Promise<SymbolDto[]> {

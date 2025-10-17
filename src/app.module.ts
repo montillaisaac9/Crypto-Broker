@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { databaseConfig } from './config/database.config';
@@ -11,13 +12,16 @@ import { TradingModule } from './trading/trading.module';
 import { OrdersModule } from './orders/orders.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { WebsocketModule } from './websocket/websocket.module';
+import { DatabaseKeepAliveModule } from './common/services/database-keepalive.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRoot(databaseConfig),
+    DatabaseKeepAliveModule,
     AuthModule,
     UsersModule,
     MarketModule,

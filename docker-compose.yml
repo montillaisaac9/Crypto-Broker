@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Aplicación NestJS conectada a Supabase
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trading-exchange-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      # Para usar Supabase, configura estas variables en tu archivo .env
+      DATABASE_HOST: ${DATABASE_HOST:-aws-1-us-east-2.pooler.supabase.com}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_NAME: ${DATABASE_NAME:-postgres}
+      DATABASE_USER: ${DATABASE_USER:-postgres.xovayflzewnveizvhnua}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-your-database-password}
+      DATABASE_POOL_MODE: ${DATABASE_POOL_MODE:-session}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+    ports:
+      - "3000:3000"
+    networks:
+      - trading-network
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+    command: npm run start:dev
+
+  # Redis para caché y sesiones (opcional)
+  redis:
+    image: redis:7-alpine
+    container_name: trading-exchange-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  trading-network:
+    driver: bridge

@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Aplicación NestJS para producción
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trading-exchange-app-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DEFAULT_BALANCE: ${DEFAULT_BALANCE:-10000}
+      MIN_ORDER_AMOUNT: ${MIN_ORDER_AMOUNT:-0.01}
+      MAX_ORDER_AMOUNT: ${MAX_ORDER_AMOUNT:-1000000}
+    ports:
+      - "3000:3000"
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  trading-network:
+    driver: bridge

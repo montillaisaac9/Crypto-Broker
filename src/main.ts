@@ -23,9 +23,50 @@ async function bootstrap() {
   // Configurar Swagger
   const config = new DocumentBuilder()
     .setTitle('Crypto Broker API')
-    .setDescription('API para un broker de criptomonedas con trading simulado')
-    .setVersion('1.0')
-    .addBearerAuth()
+    .setDescription(`
+      API completa para un broker de criptomonedas con trading simulado.
+      
+      ## Características principales:
+      - 🔐 **Autenticación JWT** - Sistema de registro y login seguro
+      - 📊 **Datos de mercado** - Precios en tiempo real de criptomonedas
+      - 💰 **Trading simulado** - Compra y venta de criptomonedas
+      - 📋 **Gestión de órdenes** - Crear, consultar y cancelar órdenes
+      - 💼 **Portfolio** - Seguimiento de balances y rendimiento
+      - 📈 **WebSockets** - Datos de velas japonesas en tiempo real
+      - 🔄 **Keep-alive** - Mantenimiento automático de conexiones
+      
+      ## Autenticación:
+      La mayoría de endpoints requieren autenticación JWT. Usa el token Bearer en el header Authorization.
+      
+      ## WebSockets:
+      Para datos en tiempo real, conecta a: \`ws://localhost:3000/chart\`
+      
+      ## Base de datos:
+      Utiliza Supabase como base de datos principal con keep-alive automático.
+    `)
+    .setVersion('1.0.0')
+    .setContact('Trading Exchange Team', 'https://github.com/trading-exchange', 'support@trading-exchange.com')
+    .setLicense('MIT', 'https://opensource.org/licenses/MIT')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Ingresa tu token JWT',
+        in: 'header',
+      },
+      'JWT-auth'
+    )
+    .addServer('http://localhost:3000', 'Servidor de desarrollo')
+    .addServer('https://your-render-app.onrender.com', 'Servidor de producción')
+    .addTag('app', 'Endpoints generales de la aplicación')
+    .addTag('auth', 'Autenticación y autorización')
+    .addTag('market', 'Datos de mercado y precios')
+    .addTag('trading', 'Operaciones de trading')
+    .addTag('orders', 'Gestión de órdenes')
+    .addTag('portfolio', 'Portfolio y balances')
+    .addTag('websocket', 'Documentación de WebSockets')
     .build();
   
   const document = SwaggerModule.createDocument(app, config);

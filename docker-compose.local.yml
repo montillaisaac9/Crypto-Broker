@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # Base de datos PostgreSQL local (opcional para desarrollo)
+  postgres:
+    image: postgres:15-alpine
+    container_name: trading-exchange-db-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trading_exchange
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - trading-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aplicación NestJS para desarrollo local
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trading-exchange-app-local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      # Para usar PostgreSQL local en lugar de Supabase
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: trading_exchange
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres123
+      DATABASE_POOL_MODE: session
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 24h
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - trading-network
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+    command: npm run start:dev
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  trading-network:
+    driver: bridge

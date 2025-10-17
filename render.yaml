@@ -1,0 +1,60 @@
+# Configuración para despliegue en Render
+services:
+  - type: web
+    name: trading-exchange-backend
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    branch: main
+    buildCommand: ""
+    startCommand: ""
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_HOST
+        value: aws-1-us-east-2.pooler.supabase.com
+      - key: DATABASE_PORT
+        value: 5432
+      - key: DATABASE_NAME
+        value: postgres
+      - key: DATABASE_USER
+        value: postgres.xovayflzewnveizvhnua
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: DATABASE_POOL_MODE
+        value: session
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: SWAGGER_ENABLED
+        value: "true"
+      - key: LOG_LEVEL
+        value: info
+      - key: DEFAULT_BALANCE
+        value: "10000"
+      - key: MIN_ORDER_AMOUNT
+        value: "0.01"
+      - key: MAX_ORDER_AMOUNT
+        value: "1000000"
+      - key: KEEPALIVE_ENABLED
+        value: "true"
+      - key: KEEPALIVE_INTERVAL_MINUTES
+        value: "30"
+      - key: KEEPALIVE_DAILY_HOUR
+        value: "2"
+      - key: KEEPALIVE_BUSINESS_HOURS
+        value: "true"
+
+databases:
+  - name: trading-exchange-db
+    plan: starter
+    region: oregon
+    databaseName: trading_exchange
+    user: postgres
