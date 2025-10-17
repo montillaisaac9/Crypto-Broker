@@ -8,7 +8,8 @@ export type {
   Prisma 
 } from '@prisma/client';
 
-// Exportar enums como valores para usar en decoradores
+// Reexportar enums directamente desde el cliente generado
+// Si hay problemas con la importación, usar la ruta directa al archivo generado
 export { 
   OrderType,
   OrderSide,
