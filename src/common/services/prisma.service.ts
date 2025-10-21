@@ -13,7 +13,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       },
     });
   }
-
   async onModuleInit() {
     console.log('🔗 Conectando a la base de datos con Prisma...');
     try {
